@@ -2,30 +2,24 @@ package provider
 
 import (
 	"github.com/gin-gonic/gin"
-	"go/types"
-	"gorm.io/gorm"
 	"net/http"
 	"sakura/model"
 )
 
-type HTTPHandler[MODEL model.Model] struct {
-	db              *gorm.DB
-	Provider        Provider[MODEL]
-	InsertValidator func(new MODEL) error
-}
-
-func (h *HTTPHandler[MODEL]) BindDB(db *gorm.DB) {
-	h.db = db
-}
-
-func (h *HTTPHandler[MODEL]) FindByID() gin.HandlerFunc {
-
-	return func(context *gin.Context) {
-		if r, err := h.Provider.FindByID(context); err == nil {
-			context.String(http.StatusOK, "%v", r)
-		}
+type (
+	Provider[MODEL model.Model] interface {
+		FindByID(context *gin.Context) (MODEL, error)
+		List(context *gin.Context) ([]MODEL, error)
+		Update(id string, model MODEL) error
+		Insert(model MODEL) error
+		Delete(id string) error
 	}
-}
+
+	HTTPHandler[MODEL model.Model] struct {
+		Provider        Provider[MODEL]
+		InsertValidator func(new MODEL) error
+	}
+)
 
 func (h *HTTPHandler[MODEL]) List() gin.HandlerFunc {
 
@@ -36,9 +30,11 @@ func (h *HTTPHandler[MODEL]) List() gin.HandlerFunc {
 	}
 }
 
-type Samples interface {
-	*gorm.DB | types.Nil
-}
+func (h *HTTPHandler[MODEL]) FindByID() gin.HandlerFunc {
 
-type HTTPHandlers[MODEL Samples] struct {
+	return func(context *gin.Context) {
+		if r, err := h.Provider.FindByID(context); err == nil {
+			context.JSON(http.StatusOK, r)
+		}
+	}
 }

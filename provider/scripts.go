@@ -17,14 +17,6 @@ type Scripts struct {
 	total       int64
 }
 
-type Provider[MODEL model.Model] interface {
-	FindByID(context *gin.Context) (MODEL, error)
-	List(context *gin.Context) ([]MODEL, error)
-	Update(id string, model MODEL) error
-	Insert(model MODEL) error
-	Delete(id string) error
-}
-
 func (t *Scripts) FindByID(context *gin.Context) (model.Scripts, error) {
 	panic("implement me")
 	//return model.Scripts{Name: "luiz"}, nil
