@@ -6,16 +6,14 @@ import (
 	"sakura/pkg"
 )
 
-type Journey struct {
-}
+type Journey struct{}
 
-type Detail struct {
-}
+type Detail struct{}
 
 func (t *Journey) FindByID(context *gin.Context) (model.JourneyDis, error) {
 
 	panic("implement me")
-	//return model.Scripts{Name: "luiz"}, nil
+	//return model.Script{Name: "luiz"}, nil
 }
 
 func (s *Journey) List(c *gin.Context) ([]model.JourneyDis, error) {

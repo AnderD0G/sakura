@@ -20,16 +20,24 @@ func init() {
 	db.SetMysql(&d)
 }
 func main() {
-	//scripts
-	t := new(provider.HTTPHandler[model.Scripts])
-	t.Provider = &provider.Scripts{QueryMap: new(pkg.QueryCondition)}
+	tai := db.GetMysql("1")
+
+	t := new(provider.HTTPHandler[model.Script])
+	t.Provider = &provider.Scripts{QueryMap: new(pkg.QueryCondition), S: &pkg.Inquirer[*model.Script]{
+		M:        new(model.Script),
+		N:        make(pkg.TypeMap),
+		QueryMap: make(map[string]pkg.RuleType),
+		Db:       tai,
+	}}
+
 	//journeyList
 	j := new(provider.HTTPHandler[model.JourneyDis])
 	j.Provider = &provider.Journey{}
+
 	//journeyDetail
 	d := new(provider.HTTPHandler[model.JourneyPerson])
 	d.Provider = &provider.Detail{}
-	//
+
 	router := gin.Default()
 	router.GET("/scripts", t.List())
 	router.GET("/js", t.List())

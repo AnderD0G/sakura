@@ -35,7 +35,7 @@ type Journey struct {
 	Title    string  `json:"title" gorm:"column:title"`
 	ID       int     `json:"id" gorm:"column:id"`
 	Shop     Shop    `json:"shop" gorm:"foreignKey:MID;references:ShopID"`
-	Scripts  Scripts `json:"script" gorm:"foreignKey:Uuid;references:ScriptID"`
+	Scripts  Script  `json:"script" gorm:"foreignKey:Uuid;references:ScriptID"`
 	Persons  Persons `json:"-" gorm:"column:persons"`
 	ScriptID string  `json:"script_id" gorm:"column:script_id"`
 	Owner    string  `json:"owner" gorm:"column:owner"`
@@ -51,7 +51,7 @@ func GetJourney(long, lat string) []JourneyDis {
 	j := make([]JourneyDis, 0)
 
 	db := db2.GetMysql("1")
-	sub := db.Model(&Journey{}).Joins("Shop").Joins("Scripts").Where("status = ?", 1)
+	sub := db.Model(&Journey{}).Joins("Shop").Joins("Script").Where("status = ?", 1)
 	db.Table("(?)as u", sub).Select(fmt.Sprintf("*,round(st_distance_sphere(point(%v,%v),point(Shop__longtitude,Shop__latitude))) dis,@age:= CONCAT('$[0 to ',Scripts__script_player_limit-1,' ]'),JSON_EXTRACT(persons, @age)as personp", long, lat)).Order("dis asc").Find(&j)
 
 	return j
@@ -67,7 +67,7 @@ func GetJourneyDetailM(id int) (*JourneyPerson, error) {
 	db := db2.GetMysql("1")
 	j := new(JourneyDis)
 
-	sub := db.Model(&Journey{ID: id}).Joins("Shop").Joins("Scripts")
+	sub := db.Model(&Journey{ID: id}).Joins("Shop").Joins("Script")
 	db.Table("(?)as u", sub).Select(fmt.Sprintf("*,@age:= CONCAT('$[0 to ',Scripts__script_player_limit-1,' ]'),JSON_EXTRACT(persons, @age)as personp")).Find(&j)
 
 	i := new([]User)

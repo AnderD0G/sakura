@@ -10,11 +10,11 @@ type (
 	strSlice []string
 )
 
-type Scripts struct {
+type Script struct {
 	ScriptName  string `json:"script_name" gorm:"column:script_name"`
 	ScriptIntro string `json:"script_intro" gorm:"column:script_intro"`
 	//type json型
-	ScriptTag             intSlice `json:"-" gorm:"column:script_tag" type:"JsonArray"`
+	ScriptTag             intSlice `json:"script_tag" gorm:"column:script_tag" type:"JsonArray"`
 	ScriptScore           float64  `json:"script_score" gorm:"column:script_score"`
 	GroupDuration         int      `json:"group_duration" gorm:"column:group_duration"`
 	ScriptCoverUrl        string   `json:"script_cover_url" gorm:"column:script_cover_url"`
@@ -29,10 +29,10 @@ type Scripts struct {
 	ScriptComplexScore    float64  `json:"script_complex_score" gorm:"column:script_complex_score"`
 	Qid                   string   `json:"qid" gorm:"column:qid"`
 	IsDel                 int      `json:"-" gorm:"column:is_del"`
-	Tags                  strSlice `json:"script_tag" gorm:"-"`
+	Tags                  strSlice `json:"script_tags" gorm:"-"`
 }
 
-func (m *Scripts) TableName() string {
+func (m *Script) TableName() string {
 	return "scripts"
 }
 

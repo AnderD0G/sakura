@@ -4,9 +4,9 @@ import (
 	"fmt"
 	ctxLogger "github.com/luizsuper/ctxLoggers"
 	"github.com/pkg/errors"
+	"gorm.io/gorm"
 	"reflect"
 	"regexp"
-	"sakura/model"
 	"strings"
 )
 
@@ -15,37 +15,13 @@ const (
 	JsonArray = "JsonArray"
 	Array     = "Array"
 )
-const (
-	script = "script"
-)
 
 type (
-	entityName string
-	entityKey  string
-	keyTag     string
-
-	entityAttrMap map[entityName]nameAttr
-	nameAttr      map[entityKey]keyTag
+	varName string
+	varType string
+	TypeMap map[varName]varType
+	RuleMap map[string]RuleType
 )
-
-var (
-	m1   entityAttrMap
-	attr nameAttr
-)
-
-func init() {
-	m1 = make(entityAttrMap)
-	m2 := make(map[entityName]interface{})
-	m2[script] = new(model.Scripts)
-	attr = make(nameAttr)
-	getAttr(m2)
-}
-
-type QueryCondition struct {
-	Page  int64
-	Size  int64
-	Query string
-}
 
 type (
 	RuleType struct {
@@ -53,39 +29,52 @@ type (
 		Comparator string
 		Value      []string
 	}
-	QueryMap map[string]RuleType
-	Kv       map[string]string
+	QueryCondition struct {
+		Page  int
+		Size  int
+		Query string
+	}
 )
 
-func GenerateKv(str string) (QueryMap, error) {
-	kv := make(QueryMap)
-	s := []byte(str)
-	//spilt := make([]string, 0)
+type Inquirer[T any] struct {
+	M          T
+	N          TypeMap
+	Db         *gorm.DB
+	QueryMap   map[string]RuleType
+	condition  string
+	page, size int
+}
+
+func (k *Inquirer[T]) ParseRule() error {
+	c := k.condition
+	q := k.QueryMap
+	s := []byte(c)
+
 	//对于进入的查询条件做检查
-	if str == "" {
-		return kv, nil
+	if c == "" {
+		return nil
 	}
 
 	queryReg := regexp.MustCompile(`([\w]+)(=|>=|<=|>|<)([^,]*)`)
-	submatch := queryReg.FindAllStringSubmatch(string(s[1:len(s)-1]), -1)
+	sub := queryReg.FindAllStringSubmatch(string(s[1:len(s)-1]), -1)
 
-	if submatch == nil {
-		return nil, errors.New("非法query")
+	if sub == nil {
+		return errors.New("非法query")
 	}
 
-	for _, v := range submatch {
+	for _, v := range sub {
 		if len(v) != 4 {
-			return nil, errors.New("非法query")
+			return errors.New("非法query")
 		}
 
-		s := keyTag("")
+		s := varType("")
 		ok := true
 		key := v[1]
 		value := v[3]
 		comparator := v[2]
 
-		if s, ok = attr[entityKey(key)]; !ok {
-			return nil, errors.New(fmt.Sprintf("无效的key:%v", key))
+		if s, ok = k.N[varName(key)]; !ok {
+			return errors.New(fmt.Sprintf("无效的key:%v", key))
 		}
 
 		switch s {
@@ -94,10 +83,10 @@ func GenerateKv(str string) (QueryMap, error) {
 			isArr := true
 
 			if jsonArr, isArr = processJsonArr(key, value); !isArr {
-				return nil, errors.New(fmt.Sprintf("无效的jsonArr:%v", key))
+				return errors.New(fmt.Sprintf("无效的jsonArr:%v", key))
 			}
 
-			kv[key] = RuleType{
+			q[key] = RuleType{
 				Rule: JsonArray,
 				Value: []string{
 					jsonArr,
@@ -105,13 +94,13 @@ func GenerateKv(str string) (QueryMap, error) {
 			}
 
 		case Array:
-			kv[key] = RuleType{
+			q[key] = RuleType{
 				Rule:  Array,
 				Value: processArr(value),
 			}
 
 		case Normal:
-			kv[key] = RuleType{
+			q[key] = RuleType{
 				Rule: Normal,
 				Value: []string{
 					value,
@@ -120,46 +109,38 @@ func GenerateKv(str string) (QueryMap, error) {
 			}
 		}
 	}
-	return kv, nil
+	return nil
 }
 
-func GetParam(queryMap *QueryCondition) (page, limit int, query string) {
-	if queryMap == nil {
-		return
+func (s *Inquirer[T]) GetParam(queryMap *QueryCondition) {
+	s.page = queryMap.Page
+	s.condition = queryMap.Query
+	s.size = queryMap.Size
+}
+
+func (s *Inquirer[T]) ParseStruct() {
+
+	typ := reflect.TypeOf(s.M)
+	val := reflect.ValueOf(s.M)
+
+	if val.Kind().String() != reflect.Ptr.String() {
+		ctxLogger.Error(nil, "is not ptr")
+		panic(errors.New("is not ptr"))
 	}
-	query = queryMap.Query
-	page = int(queryMap.Page)
-	limit = int(queryMap.Size)
-	return
-}
+	if val.IsNil() {
+		ctxLogger.Error(nil, "nil ptr")
+		panic(errors.New("nil ptr"))
+	}
 
-func getAttr(entity map[entityName]interface{}) {
-	for name, body := range entity {
-		m1[name] = attr
-
-		typ := reflect.TypeOf(body)
-		val := reflect.ValueOf(body)
-
-		if val.Kind().String() != reflect.Ptr.String() {
-			ctxLogger.Error(nil, "is not ptr")
-			panic(errors.New("is not ptr"))
+	num := val.Elem().NumField()
+	for i := 0; i < num; i++ {
+		field := typ.Elem().Field(i)
+		tag := field.Tag.Get("type")
+		json := field.Tag.Get("json")
+		s.N[varName(json)] = varType(tag)
+		if tag == "" {
+			s.N[varName(json)] = Normal
 		}
-		if val.IsNil() {
-			ctxLogger.Error(nil, "nil ptr")
-			panic(errors.New("nil ptr"))
-		}
-
-		num := val.Elem().NumField()
-		for i := 0; i < num; i++ {
-			field := typ.Elem().Field(i)
-			tag := field.Tag.Get("type")
-			json := field.Tag.Get("json")
-			attr[entityKey(json)] = keyTag(tag)
-			if tag == "" {
-				attr[entityKey(json)] = Normal
-			}
-		}
-
 	}
 
 }
@@ -195,4 +176,28 @@ func processArr(str string) []string {
 	}
 
 	return i
+}
+
+func (s *Inquirer[T]) Query(t interface{}) {
+	db := s.Db
+	limit := s.size
+	page := s.page
+
+	for k, v := range s.QueryMap {
+		if v.Rule == Normal {
+			db = db.Where(fmt.Sprintf("%v %v ?", k, v.Comparator), v.Value[0])
+		}
+		if v.Rule == JsonArray {
+			db = db.Where(v.Value[0])
+		}
+		if v.Rule == Array {
+			db = db.Where(fmt.Sprintf("%v IN ?", k), v.Value)
+		}
+	}
+
+	if limit > 0 {
+		db = db.Limit(limit).Offset((page - 1) * limit)
+	}
+
+	db.Find(t)
 }

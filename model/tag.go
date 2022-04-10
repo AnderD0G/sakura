@@ -14,5 +14,5 @@ func (m *Tag) TableName() string {
 }
 
 type Model interface {
-	Tag | Scripts | Category | JourneyDis | JourneyPerson
+	Tag | Script | Category | JourneyDis | JourneyPerson | Comment
 }
