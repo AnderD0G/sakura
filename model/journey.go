@@ -51,7 +51,7 @@ func GetJourney(long, lat string) []JourneyDis {
 	j := make([]JourneyDis, 0)
 
 	db := db2.GetMysql("1")
-	sub := db.Model(&Journey{}).Joins("Shop").Joins("Script").Where("status = ?", 1)
+	sub := db.Model(&Journey{}).Joins("Shop").Joins("Scripts").Where("status = ?", 1)
 	db.Table("(?)as u", sub).Select(fmt.Sprintf("*,round(st_distance_sphere(point(%v,%v),point(Shop__longtitude,Shop__latitude))) dis,@age:= CONCAT('$[0 to ',Scripts__script_player_limit-1,' ]'),JSON_EXTRACT(persons, @age)as personp", long, lat)).Order("dis asc").Find(&j)
 
 	return j

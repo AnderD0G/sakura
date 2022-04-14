@@ -23,25 +23,33 @@ func main() {
 	tai := db.GetMysql("1")
 
 	t := new(provider.HTTPHandler[model.Script])
-	t.Provider = &provider.Scripts{QueryMap: new(pkg.QueryCondition), S: &pkg.Inquirer[*model.Script]{
-		M:        new(model.Script),
-		N:        make(pkg.TypeMap),
-		QueryMap: make(map[string]pkg.RuleType),
-		Db:       tai,
+	t.Provider = &provider.Scripts{QueryMap: new(pkg.Query), S: &pkg.Inquirer[*model.Script]{
+		M:  new(model.Script),
+		Db: tai,
 	}}
 
-	//journeyList
 	j := new(provider.HTTPHandler[model.JourneyDis])
 	j.Provider = &provider.Journey{}
 
-	//journeyDetail
 	d := new(provider.HTTPHandler[model.JourneyPerson])
 	d.Provider = &provider.Detail{}
 
+	c := new(provider.HTTPHandler[model.Comment])
+	c.Provider = &provider.Comment{Query: new(pkg.Query), I: &pkg.Inquirer[*model.Comment]{
+		M:  new(model.Comment),
+		Db: tai,
+	}, R: &pkg.Inquirer[*model.Reply]{
+		M:  new(model.Reply),
+		Db: tai,
+	},
+	}
+	c.ListStruct = model.CommentsPub
+
 	router := gin.Default()
-	router.GET("/scripts", t.List())
-	router.GET("/js", t.List())
+	router.GET("/script", t.List())
+	router.GET("/js", j.List())
 	router.GET("/js/detail", d.FindByID())
-	log.Fatal(router.Run(":8080"))
+	router.GET("/comment", c.List())
+	log.Fatal(router.Run(":8081"))
 
 }

@@ -8,7 +8,7 @@ import (
 )
 
 type Tag struct {
-	queryMap *pkg.QueryCondition
+	queryMap *pkg.Query
 	tagModel *[]model.Tag
 }
 

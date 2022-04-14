@@ -29,10 +29,10 @@ type (
 		Comparator string
 		Value      []string
 	}
-	QueryCondition struct {
-		Page  int
-		Size  int
-		Query string
+	Query struct {
+		Page      int
+		Size      int
+		Condition string
 	}
 )
 
@@ -42,12 +42,13 @@ type Inquirer[T any] struct {
 	Db         *gorm.DB
 	QueryMap   map[string]RuleType
 	condition  string
-	page, size int
+	Page, Size int
 }
 
-func (k *Inquirer[T]) ParseRule() error {
+func (k *Inquirer[T]) ParseQuery() error {
 	c := k.condition
-	q := k.QueryMap
+	m := make(map[string]RuleType)
+	k.QueryMap = m
 	s := []byte(c)
 
 	//对于进入的查询条件做检查
@@ -55,7 +56,7 @@ func (k *Inquirer[T]) ParseRule() error {
 		return nil
 	}
 
-	queryReg := regexp.MustCompile(`([\w]+)(=|>=|<=|>|<)([^,]*)`)
+	queryReg := regexp.MustCompile(`([\w]+)(=|>=|<=|>|<|:)([^,]*)`)
 	sub := queryReg.FindAllStringSubmatch(string(s[1:len(s)-1]), -1)
 
 	if sub == nil {
@@ -86,60 +87,66 @@ func (k *Inquirer[T]) ParseRule() error {
 				return errors.New(fmt.Sprintf("无效的jsonArr:%v", key))
 			}
 
-			q[key] = RuleType{
+			m[key] = RuleType{
 				Rule: JsonArray,
 				Value: []string{
 					jsonArr,
 				},
 			}
 
-		case Array:
-			q[key] = RuleType{
-				Rule:  Array,
-				Value: processArr(value),
-			}
-
 		case Normal:
-			q[key] = RuleType{
+			m[key] = RuleType{
 				Rule: Normal,
 				Value: []string{
 					value,
 				},
 				Comparator: comparator,
 			}
+			if comparator == ":" {
+				m[key] = RuleType{
+					Rule:       Array,
+					Value:      strings.Split(strings.TrimSuffix(strings.TrimPrefix(value, "("), ")"), "|"),
+					Comparator: comparator,
+				}
+			}
 		}
 	}
 	return nil
 }
 
-func (s *Inquirer[T]) GetParam(queryMap *QueryCondition) {
-	s.page = queryMap.Page
-	s.condition = queryMap.Query
-	s.size = queryMap.Size
+func (s *Inquirer[T]) InjectParam(queryMap *Query) {
+	s.Page = queryMap.Page
+	s.condition = queryMap.Condition
+	s.Size = queryMap.Size
 }
 
 func (s *Inquirer[T]) ParseStruct() {
 
-	typ := reflect.TypeOf(s.M)
-	val := reflect.ValueOf(s.M)
+	if s.N == nil {
 
-	if val.Kind().String() != reflect.Ptr.String() {
-		ctxLogger.Error(nil, "is not ptr")
-		panic(errors.New("is not ptr"))
-	}
-	if val.IsNil() {
-		ctxLogger.Error(nil, "nil ptr")
-		panic(errors.New("nil ptr"))
-	}
+		s.N = make(TypeMap)
 
-	num := val.Elem().NumField()
-	for i := 0; i < num; i++ {
-		field := typ.Elem().Field(i)
-		tag := field.Tag.Get("type")
-		json := field.Tag.Get("json")
-		s.N[varName(json)] = varType(tag)
-		if tag == "" {
-			s.N[varName(json)] = Normal
+		typ := reflect.TypeOf(s.M)
+		val := reflect.ValueOf(s.M)
+
+		if val.Kind().String() != reflect.Ptr.String() {
+			ctxLogger.Error(nil, "is not ptr")
+			panic(errors.New("is not ptr"))
+		}
+		if val.IsNil() {
+			ctxLogger.Error(nil, "nil ptr")
+			panic(errors.New("nil ptr"))
+		}
+
+		num := val.Elem().NumField()
+		for i := 0; i < num; i++ {
+			field := typ.Elem().Field(i)
+			tag := field.Tag.Get("type")
+			json := field.Tag.Get("json")
+			s.N[varName(json)] = varType(tag)
+			if tag == "" {
+				s.N[varName(json)] = Normal
+			}
 		}
 	}
 
@@ -165,23 +172,10 @@ func processJsonArr(pair ...string) (string, bool) {
 	return value, true
 }
 
-func processArr(str string) []string {
-	s := []byte(str)
-
-	arr := strings.Split(string(s[1:len(s)-1]), "|")
-	i := make([]string, len(arr))
-
-	for k, v := range i {
-		i[k] = v
-	}
-
-	return i
-}
-
-func (s *Inquirer[T]) Query(t interface{}) {
-	db := s.Db
-	limit := s.size
-	page := s.page
+func (s *Inquirer[T]) Query(table string, t interface{}, f ...func(d *gorm.DB)) {
+	db := s.Db.Table(table)
+	limit := s.Size
+	page := s.Page
 
 	for k, v := range s.QueryMap {
 		if v.Rule == Normal {
@@ -199,5 +193,10 @@ func (s *Inquirer[T]) Query(t interface{}) {
 		db = db.Limit(limit).Offset((page - 1) * limit)
 	}
 
-	db.Find(t)
+	if len(f) == 1 {
+		f[0](db)
+		return
+	}
+
+	db.Debug().Find(t)
 }

@@ -12,7 +12,7 @@ import (
 )
 
 type Scripts struct {
-	QueryMap    *pkg.QueryCondition
+	QueryMap    *pkg.Query
 	scriptModel *[]model.Script
 	S           *pkg.Inquirer[*model.Script]
 }
@@ -28,9 +28,9 @@ func (s *Scripts) List(c *gin.Context) ([]model.Script, error) {
 	size := c.DefaultQuery("size", "10")
 	query := c.DefaultQuery("query", "")
 
-	s.QueryMap.Query = query
-	s.QueryMap.Page = pkg.Atoi(page)
-	s.QueryMap.Size = pkg.Atoi(size)
+	s.QueryMap.Condition = query
+	s.QueryMap.Page = pkg.Ati(page)
+	s.QueryMap.Size = pkg.Ati(size)
 
 	t := new(Tag)
 
@@ -81,9 +81,9 @@ func (s *Scripts) Work(ctx context.Context, finishChan chan<- pkg.Finish) {
 	go pkg.Watcher(ctx, finishChan)
 	i := new([]model.Script)
 
-	s.S.GetParam(s.QueryMap)
+	s.S.InjectParam(s.QueryMap)
 	s.S.ParseStruct()
-	err := s.S.ParseRule()
+	err := s.S.ParseQuery()
 	if err != nil {
 		pkg.SafeSend(finishChan, pkg.Finish{
 			IsDone: false,
@@ -91,7 +91,7 @@ func (s *Scripts) Work(ctx context.Context, finishChan chan<- pkg.Finish) {
 		})
 	}
 
-	s.S.Query(i)
+	s.S.Query(new(model.Script).TableName(), i)
 
 	s.scriptModel = i
 	pkg.SafeSend(finishChan, pkg.Finish{

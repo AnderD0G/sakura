@@ -16,8 +16,8 @@ type (
 	}
 
 	HTTPHandler[MODEL model.Model] struct {
-		Provider        Provider[MODEL]
-		InsertValidator func(new MODEL) error
+		Provider   Provider[MODEL]
+		ListStruct func(new *[]MODEL) (error, interface{})
 	}
 )
 
@@ -25,7 +25,21 @@ func (h *HTTPHandler[MODEL]) List() gin.HandlerFunc {
 
 	return func(context *gin.Context) {
 		if r, err := h.Provider.List(context); err == nil {
+			if err != nil {
+				context.JSON(http.StatusInternalServerError, nil)
+				return
+			}
+			if h.ListStruct != nil {
+				err, i := h.ListStruct(&r)
+				if err != nil {
+					context.JSON(http.StatusInternalServerError, nil)
+					return
+				}
+				context.JSON(http.StatusOK, i)
+				return
+			}
 			context.JSON(http.StatusOK, r)
+			return
 		}
 	}
 }

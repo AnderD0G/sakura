@@ -43,7 +43,7 @@ func (t *Journey) Delete(id string) error {
 
 func (t *Detail) FindByID(context *gin.Context) (model.JourneyPerson, error) {
 	id := context.DefaultQuery("id", "")
-	m, err := model.GetJourneyDetailM(pkg.Atoi(id))
+	m, err := model.GetJourneyDetailM(pkg.Ati(id))
 	if err != nil {
 		return model.JourneyPerson{}, err
 	}

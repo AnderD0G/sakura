@@ -2,7 +2,7 @@ package pkg
 
 import "strconv"
 
-func Atoi(key string) int {
-	atoi, _ := strconv.Atoi(key)
-	return atoi
+func Ati(key string) int {
+	r, _ := strconv.Atoi(key)
+	return r
 }
