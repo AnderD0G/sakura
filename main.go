@@ -38,9 +38,6 @@ func main() {
 	c.Provider = &provider.Comment{Query: new(pkg.Query), I: &pkg.Inquirer[*model.Comment]{
 		M:  new(model.Comment),
 		Db: tai,
-	}, R: &pkg.Inquirer[*model.Reply]{
-		M:  new(model.Reply),
-		Db: tai,
 	},
 	}
 	c.ListStruct = model.CommentsPub
@@ -50,6 +47,8 @@ func main() {
 	router.GET("/js", j.List())
 	router.GET("/js/detail", d.FindByID())
 	router.GET("/comment", c.List())
+	router.GET("/comment/detail", c.FindByID())
+
 	log.Fatal(router.Run(":8081"))
 
 }
