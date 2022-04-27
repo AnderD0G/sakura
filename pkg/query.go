@@ -4,6 +4,7 @@ import (
 	"fmt"
 	ctxLogger "github.com/luizsuper/ctxLoggers"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"reflect"
 	"regexp"
@@ -37,7 +38,7 @@ type (
 )
 
 type Inquirer[T any] struct {
-	M          T
+	M          interface{}
 	N          TypeMap
 	Db         *gorm.DB
 	QueryMap   map[string]RuleType
@@ -120,35 +121,51 @@ func (s *Inquirer[T]) InjectParam(queryMap *Query) {
 	s.Size = queryMap.Size
 }
 
-func (s *Inquirer[T]) ParseStruct() {
+func (s *Inquirer[T]) parseStruct() {
 
 	if s.N == nil {
-
 		s.N = make(TypeMap)
+	}
 
-		typ := reflect.TypeOf(s.M)
-		val := reflect.ValueOf(s.M)
+	typ := reflect.TypeOf(s.M)
+	val := reflect.ValueOf(s.M)
 
-		if val.Kind().String() != reflect.Ptr.String() {
-			ctxLogger.Error(nil, "is not ptr")
-			panic(errors.New("is not ptr"))
+	if val.Kind().String() != reflect.Ptr.String() {
+		ctxLogger.FError(nil, "is not ptr", zap.String("finally get", val.Kind().String()))
+		panic(errors.New("is not ptr"))
+	}
+	if val.IsNil() {
+		ctxLogger.Error(nil, "nil ptr")
+		panic(errors.New("nil ptr"))
+	}
+
+	num := val.Elem().NumField()
+	for i := 0; i < num; i++ {
+		field := typ.Elem().Field(i)
+		//fmt.Printf("name:%v,kind:%v", field.Name, val.Elem().Field(i).Kind())
+		//递归解析结构体
+		if v := val.Elem().Field(i); v.Kind() == reflect.Struct {
+			s.M = v.Addr().Interface()
+			s.parseStruct()
 		}
-		if val.IsNil() {
-			ctxLogger.Error(nil, "nil ptr")
-			panic(errors.New("nil ptr"))
-		}
 
-		num := val.Elem().NumField()
-		for i := 0; i < num; i++ {
-			field := typ.Elem().Field(i)
-			tag := field.Tag.Get("type")
-			json := field.Tag.Get("json")
-			s.N[varName(json)] = varType(tag)
-			if tag == "" {
-				s.N[varName(json)] = Normal
-			}
+		tag := field.Tag.Get("type")
+		json := field.Tag.Get("json")
+
+		s.N[varName(json)] = varType(tag)
+		if tag == "" {
+			s.N[varName(json)] = Normal
 		}
 	}
+
+	return
+}
+func (s *Inquirer[T]) ParseStruct() {
+	if s.N == nil {
+		ctxLogger.FInfo(nil, "first", zap.String("which", fmt.Sprintf("%T", s)))
+		s.parseStruct()
+	}
+	return
 
 }
 

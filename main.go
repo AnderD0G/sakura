@@ -13,7 +13,7 @@ import (
 func init() {
 	d := db.DB[*gorm.DB]{}
 
-	d.Provider = &db.MysqlPro{Address: "root:123456qwe@tcp(127.0.0.1:3306)/taihe"}
+	d.Provider = &db.MysqlPro{Address: "root:my-secret-pw@tcp(121.40.31.54:3306)/taihe"}
 
 	d.Initial()
 
@@ -41,6 +41,7 @@ func main() {
 	},
 	}
 	c.ListStruct = model.CommentsPub
+	c.OneStruct = model.CDetailPub
 
 	router := gin.Default()
 	router.GET("/script", t.List())
